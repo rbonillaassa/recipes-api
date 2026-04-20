@@ -109,9 +109,18 @@ async def add_final_review_to_state(ctx: Context, final_review: str) -> str:
 
 def post_review_to_github(pr_number: int, comment: str) -> str:
     """Post a review comment to a GitHub pull request.
-    Uses pr.create_review() with event='COMMENT' so the review is submitted
-    immediately (not left in pending/draft state)."""
+    Cleans up any stale PENDING reviews from previous runs before
+    submitting a new review with event='COMMENT'."""
     pr = repo.get_pull(int(pr_number))
+    for r in pr.get_reviews():
+        if r.state == "PENDING":
+            try:
+                r.delete()
+            except Exception:
+                try:
+                    r.submit(body=r.body or "(cleanup)", event="COMMENT")
+                except Exception:
+                    pass
     review = pr.create_review(body=comment, event="COMMENT")
     return f"Review posted to PR #{pr_number} (review id: {review.id})."
 
